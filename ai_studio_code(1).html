@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Postava - MoCap Animace (GTA Styl)</title>
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <style>
+        html, body { overflow: hidden; width: 100%; height: 100%; margin: 0; padding: 0; background: #1e1e1e; font-family: sans-serif; }
+        #renderCanvas { width: 100%; height: 100%; touch-action: none; outline: none; }
+        #ui { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); padding: 20px; border-radius: 12px; color: white; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.6); width: 80%; max-width: 600px; }
+        .btn-group { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 15px; }
+        button { background: #ff3366; border: none; padding: 10px 15px; color: white; font-weight: bold; border-radius: 6px; cursor: pointer; font-size: 14px; transition: 0.2s; flex: 1 1 calc(33% - 10px); }
+        button:hover { background: #ff6688; transform: scale(1.05); }
+        button.active { background: #00cc66; }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <h2 style="margin:0 0 5px 0; color: #ff3366;">MoCap State Machine</h2>
+        <p style="margin:0; font-size: 13px;">Vyber animaci. Engine přehraje předem nahrané klíčové snímky (Keyframes).</p>
+        <div class="btn-group">
+            <button id="btnIdle" class="active">Základní postoj</button>
+            <button id="btnRun">Běh</button>
+            <button id="btnAim">Držení zbraně</button>
+            <button id="btnShoot">Střelba</button>
+            <button id="btnJump">Skok</button>
+            <button id="btnDeath">Smrt (Pád)</button>
+        </div>
+    </div>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById("renderCanvas");
+        const engine = new BABYLON.Engine(canvas, true);
+
+        const createScene = function () {
+            const scene = new BABYLON.Scene(engine);
+            scene.clearColor = new BABYLON.Color4(0.12, 0.12, 0.12, 1);
+
+            const camera = new BABYLON.ArcRotateCamera("cam", Math.PI/3, Math.PI/2.2, 20, new BABYLON.Vector3(0, 3, 0), scene);
+            camera.attachControl(canvas, true);
+            camera.wheelPrecision = 50;
+
+            const light = new BABYLON.DirectionalLight("dirLight", new BABYLON.Vector3(-1, -2, -1), scene);
+            light.position = new BABYLON.Vector3(20, 40, 20); light.intensity = 0.8;
+            const ambient = new BABYLON.HemisphericLight("amb", new BABYLON.Vector3(0, 1, 0), scene); ambient.intensity = 0.4;
+
+            const shadowGen = new BABYLON.ShadowGenerator(1024, light);
+            shadowGen.useBlurExponentialShadowMap = true;
+
+            // Materiály
+            const matBody = new BABYLON.StandardMaterial("body", scene); matBody.diffuseColor = new BABYLON.Color3(1, 0.4, 0);
+            const matJoint = new BABYLON.StandardMaterial("joint", scene); matJoint.diffuseColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+            const matDark = new BABYLON.StandardMaterial("dark", scene); matDark.diffuseColor = new BABYLON.Color3(0.08, 0.08, 0.08);
+
+            // --- STAVBA KOSTRY ---
+            const torso = BABYLON.MeshBuilder.CreateBox("torso", {width: 1.8, height: 2.5, depth: 1}, scene);
+            torso.position.y = 5.8; torso.material = matBody; shadowGen.addShadowCaster(torso);
+            
+            const pelvis = BABYLON.MeshBuilder.CreateBox("pelvis", {width: 1.8, height: 0.9, depth: 1.3}, scene);
+            pelvis.parent = torso; pelvis.position = new BABYLON.Vector3(0, -1.6, 0.15); pelvis.material = matBody;
+            
+            const chest = BABYLON.MeshBuilder.CreateBox("chest", {width: 1.85, height: 1.2, depth: 1.2}, scene);
+            chest.parent = torso; chest.position = new BABYLON.Vector3(0, 0.6, -0.1); chest.material = matBody;
+
+            const head = BABYLON.MeshBuilder.CreateSphere("head", {diameter: 1.2}, scene);
+            head.parent = torso; head.position.y = 1.9; head.material = matBody; shadowGen.addShadowCaster(head);
+
+            // Oči a pusa
+            const faceZ = -0.55; 
+            const lEye = BABYLON.MeshBuilder.CreateSphere("lEye", {diameter: 0.15}, scene); lEye.parent = head; lEye.position = new BABYLON.Vector3(-0.22, 0.15, faceZ); lEye.material = matDark;
+            const rEye = BABYLON.MeshBuilder.CreateSphere("rEye", {diameter: 0.15}, scene); rEye.parent = head; rEye.position = new BABYLON.Vector3(0.22, 0.15, faceZ); rEye.material = matDark;
+            const mouth = BABYLON.MeshBuilder.CreateBox("mouth", {width: 0.4, height: 0.05, depth: 0.05}, scene); mouth.parent = head; mouth.position = new BABYLON.Vector3(0, -0.25, faceZ); mouth.material = matDark;
+
+            function createLimb(name, parent, length, diameter, pivotPos, meshPos) {
+                const pivot = new BABYLON.TransformNode(name + "Pivot", scene);
+                pivot.parent = parent; pivot.position = pivotPos;
+                const joint = BABYLON.MeshBuilder.CreateSphere(name+"Joint", {diameter: diameter*1.2}, scene);
+                joint.parent = pivot; joint.material = matJoint;
+                const mesh = BABYLON.MeshBuilder.CreateCylinder(name, {height: length, diameter: diameter}, scene);
+                mesh.parent = pivot; mesh.position = meshPos; mesh.material = matBody;
+                shadowGen.addShadowCaster(mesh);
+                return pivot;
+            }
+
+            const lShoulder = createLimb("lArm", torso, 1.5, 0.5, new BABYLON.Vector3(-1.1, 1, 0), new BABYLON.Vector3(0, -0.75, 0));
+            const lElbow = createLimb("lForearm", lShoulder, 1.5, 0.4, new BABYLON.Vector3(0, -1.5, 0), new BABYLON.Vector3(0, -0.75, 0));
+            const rShoulder = createLimb("rArm", torso, 1.5, 0.5, new BABYLON.Vector3(1.1, 1, 0), new BABYLON.Vector3(0, -0.75, 0));
+            const rElbow = createLimb("rForearm", rShoulder, 1.5, 0.4, new BABYLON.Vector3(0, -1.5, 0), new BABYLON.Vector3(0, -0.75, 0));
+
+            const lHip = createLimb("lThigh", torso, 2, 0.7, new BABYLON.Vector3(-0.5, -2.0, -0.1), new BABYLON.Vector3(0, -1, 0));
+            const lKnee = createLimb("lCalf", lHip, 2, 0.5, new BABYLON.Vector3(0, -2, 0), new BABYLON.Vector3(0, -1, 0));
+            const rHip = createLimb("rThigh", torso, 2, 0.7, new BABYLON.Vector3(0.5, -2.0, -0.1), new BABYLON.Vector3(0, -1, 0));
+            const rKnee = createLimb("rCalf", rHip, 2, 0.5, new BABYLON.Vector3(0, -2, 0), new BABYLON.Vector3(0, -1, 0));
+
+            // Rukavice a boty
+            const lGlove = BABYLON.MeshBuilder.CreateSphere("lGlove", {diameterX: 0.6, diameterY: 0.7, diameterZ: 0.6}, scene); lGlove.parent = lElbow; lGlove.position.y = -1.65; lGlove.material = matDark;
+            const rGlove = BABYLON.MeshBuilder.CreateSphere("rGlove", {diameterX: 0.6, diameterY: 0.7, diameterZ: 0.6}, scene); rGlove.parent = rElbow; rGlove.position.y = -1.65; rGlove.material = matDark;
+            const lShoe = BABYLON.MeshBuilder.CreateBox("lShoe", {width: 0.6, height: 0.4, depth: 1.1}, scene); lShoe.parent = lKnee; lShoe.position = new BABYLON.Vector3(0, -2.2, -0.2); lShoe.material = matDark;
+            const rShoe = BABYLON.MeshBuilder.CreateBox("rShoe", {width: 0.6, height: 0.4, depth: 1.1}, scene); rShoe.parent = rKnee; rShoe.position = new BABYLON.Vector3(0, -2.2, -0.2); rShoe.material = matDark;
+
+            // Podlaha
+            const ground = BABYLON.MeshBuilder.CreateGround("ground", {width: 40, height: 40}, scene);
+            const matGround = new BABYLON.StandardMaterial("gMat", scene); matGround.diffuseColor = new BABYLON.Color3(0.2, 0.2, 0.22);
+            ground.material = matGround; ground.receiveShadows = true; ground.position.y = -0.4;
+
+            // --- DEFINICE MOCAP VZORŮ (KEYFRAMES) ---
+            
+            function createAnim(property, keys) {
+                const anim = new BABYLON.Animation("anim", property, 30, BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+                anim.setKeys(keys);
+                return anim;
+            }
+
+            // 1. IDLE (Základní postoj)
+            const idleGroup = new BABYLON.AnimationGroup("Idle");
+            idleGroup.addTargetedAnimation(createAnim("position.y", [{frame:0, value:5.8}, {frame:30, value:5.8}]), torso);
+            idleGroup.addTargetedAnimation(createAnim("rotation.x", [{frame:0, value:0}, {frame:30, value:0}]), torso);
+            idleGroup.addTargetedAnimation(createAnim("rotation.y", [{frame:0, value:0}, {frame:30, value:0}]), torso);
+            [lShoulder, rShoulder, lElbow, rElbow, lHip, rHip, lKnee, rKnee].forEach(bone => {
+                idleGroup.addTargetedAnimation(createAnim("rotation.x", [{frame:0, value:0}, {frame:30, value:0}]), bone);
+                idleGroup.addTargetedAnimation(createAnim("rotation.z", [{frame:0, value:0}, {frame:30, value:0}]), bone);
+            });
+
+            // 2. BĚH (Cyklická animace)
+            const runGroup = new BABYLON.AnimationGroup("Run");
+            runGroup.addTargetedAnimation(createAnim("position.y", [{frame:0, value:5.6}, {frame:15, value:6.0}, {frame:30, value:5.6}]), torso);
+            runGroup.addTargetedAnimation(createAnim("rotation.x", [{frame:0, value:0.3}, {frame:30, value:0.3}]), torso); // Náklon dopředu
+            runGroup.addTargetedAnimation(createAnim("rotation.x", [{frame:0, value:1.0}, {frame:15, value:-1.0}, {frame:30, value:1.0}]), lShoulder);
+            runGroup.addTargetedAnimation(createAnim("rotation.x", [{frame:0, value:-1.0}, {frame:15, value:1.0}, {frame:30, value:-1.0}]), rShoulder);
+            runGroup.addTargetedAnimation(createAnim("rotation.x", [{frame:0, value:-1.0}, {frame:15, value:-0.2}, {frame:30, value:-1.0}]), lElbow);
+            runGroup.addTargetedAnimation(createAnim("rotation.x", [{frame:0, value:-0.2}, {frame:15, value:-1.0}, {frame:30, value:-0.2}]), rElbow);
+            runGroup.addTargetedAnimation(createAnim("rotation.x", [{frame:0, value:-1.0}, {frame:15, value:1.0}, {frame:30, value:-1.0}]), lHip);
+            runGroup.addTargetedAnimation(createAnim("rotation.x", [{frame:0, value:1.0}, {frame:15, value:-1.0}, {frame:30, value:1.0}]), rHip);
+            runGroup.addTargetedAnimation(createAnim("rotation.x", [{frame:0, value:0.1}, {frame:7, value:1.5}, {frame:15, value:0.1}, {frame:30, value:0.1}]), lKnee);
+            runGroup.addTargetedAnimation(createAnim("rotation.x", [{frame:0, value:0.1}, {frame:15, value:0.1}, {frame:22, value:1.5}, {frame:30, value:0.1}]), rKnee);
+
+            // 3. DRŽENÍ ZBRANĚ (Míření)
+            const aimGroup = new BABYLON.AnimationGroup("Aim");
+            aimGroup.addTargetedAnimation(createAnim("rotation.y", [{frame:0, value:0.6}, {frame:30, value:0.6}]), torso); // Tělo bokem
+            aimGroup.addTargetedAnimation(createAnim("rotation.x", [{frame:0, value:-1.4}, {frame:30, value:-1.4}]), rShoulder); // Pravá ruka na spoušti
+            aimGroup.addTargetedAnimation(createAnim("rotation.z", [{frame:0, value:0.3}, {frame:30, value:0.3}]), rShoulder);
+            aimGroup.addTargetedAnimation(createAnim("rotation.x", [{frame:0, value:-1.8}, {frame:30, value:-1.8}]), rElbow);
+            aimGroup.addTargetedAnimation(createAnim("rotation.x", [{frame:0, value:-1.2}, {frame:30, value:-1.2}]), lShoulder); // Levá ruka na hlavni
+            aimGroup.addTargetedAnimation(createAnim("rotation.z", [{frame:0, value:-0.5}, {frame:30, value:-0.5}]), lShoulder);
+            aimGroup.addTargetedAnimation(createAnim("rotation.x", [{frame:0, value:-1.2}, {frame:30, value:-1.2}]), lElbow);
+            aimGroup.addTargetedAnimation(createAnim("rotation.x", [{frame:0, value:-0.2}, {frame:30, value:-0.2}]), lHip); // Rozkročení
+            aimGroup.addTargetedAnimation(createAnim("rotation.x", [{frame:0, value:0.2}, {frame:30, value:0.2}]), rHip);
+
+            // 4. STŘELBA (Zpětný ráz)
+            const shootGroup = new BABYLON.AnimationGroup("Shoot");
+            shootGroup.addTargetedAnimation(createAnim("rotation.y", [{frame:0, value:0.6}, {frame:30, value:0.6}]), torso);
+            shootGroup.addTargetedAnimation(createAnim("rotation.x", [{frame:0, value:0}, {frame:5, value:-0.15}, {frame:15, value:0}, {frame:30, value:0}]), torso); // Cuknutí těla
+            shootGroup.addTargetedAnimation(createAnim("rotation.x", [{frame:0, value:-1.4}, {frame:5, value:-1.1}, {frame:15, value:-1.4}, {frame:30, value:-1.4}]), rShoulder);
+            shootGroup.addTargetedAnimation(createAnim("rotation.x", [{frame:0, value:-1.2}, {frame:5, value:-0.9}, {frame:15, value:-1.2}, {frame:30, value:-1.2}]), lShoulder);
+            shootGroup.addTargetedAnimation(createAnim("rotation.z", [{frame:0, value:0.3}, {frame:30, value:0.3}]), rShoulder);
+            shootGroup.addTargetedAnimation(createAnim("rotation.z", [{frame:0, value:-0.5}, {frame:30, value:-0.5}]), lShoulder);
+            shootGroup.addTargetedAnimation(createAnim("rotation.x", [{frame:0, value:-1.8}, {frame:30, value:-1.8}]), rElbow);
+            shootGroup.addTargetedAnimation(createAnim("rotation.x", [{frame:0, value:-1.2}, {frame:30, value:-1.2}]), lElbow);
+
+            // 5. SKOK
+            const jumpGroup = new BABYLON.AnimationGroup("Jump");
+            jumpGroup.addTargetedAnimation(createAnim("position.y", [{frame:0, value:5.8}, {frame:10, value:4.5}, {frame:20, value:9.0}, {frame:35, value:9.0}, {frame:45, value:4.5}, {frame:60, value:5.8}]), torso);
+            jumpGroup.addTargetedAnimation(createAnim("rotation.x", [{frame:0, value:0}, {frame:10, value:-0.8}, {frame:20, value:0}, {frame:35, value:0}, {frame:45, value:-0.8}, {frame:60, value:0}]), lHip);
+            jumpGroup.addTargetedAnimation(createAnim("rotation.x", [{frame:0, value:0}, {frame:10, value:-0.8}, {frame:20, value:0}, {frame:35, value:0}, {frame:45, value:-0.8}, {frame:60, value:0}]), rHip);
+            jumpGroup.addTargetedAnimation(createAnim("rotation.x", [{frame:0, value:0}, {frame:10, value:1.5}, {frame:20, value:0}, {frame:35, value:0}, {frame:45, value:1.5}, {frame:60, value:0}]), lKnee);
+            jumpGroup.addTargetedAnimation(createAnim("rotation.x", [{frame:0, value:0}, {frame:10, value:1.5}, {frame:20, value:0}, {frame:35, value:0}, {frame:45, value:1.5}, {frame:60, value:0}]), rKnee);
+            jumpGroup.addTargetedAnimation(createAnim("rotation.x", [{frame:0, value:0}, {frame:10, value:0.5}, {frame:20, value:-2.5}, {frame:35, value:-2.5}, {frame:45, value:0.5}, {frame:60, value:0}]), lShoulder);
+            jumpGroup.addTargetedAnimation(createAnim("rotation.x", [{frame:0, value:0}, {frame:10, value:0.5}, {frame:20, value:-2.5}, {frame:35, value:-2.5}, {frame:45, value:0.5}, {frame:60, value:0}]), rShoulder);
+
+            // 6. SMRT (Pád na záda)
+            const deathGroup = new BABYLON.AnimationGroup("Death");
+            deathGroup.addTargetedAnimation(createAnim("position.y", [{frame:0, value:5.8}, {frame:15, value:3.0}, {frame:30, value:0.9}, {frame:60, value:0.9}]), torso);
+            deathGroup.addTargetedAnimation(createAnim("rotation.x", [{frame:0, value:0}, {frame:15, value:-0.5}, {frame:30, value:-Math.PI/2}, {frame:60, value:-Math.PI/2}]), torso);
+            deathGroup.addTargetedAnimation(createAnim("rotation.z", [{frame:0, value:0}, {frame:30, value:-1.5}, {frame:60, value:-1.5}]), lShoulder);
+            deathGroup.addTargetedAnimation(createAnim("rotation.z", [{frame:0, value:0}, {frame:30, value:1.5}, {frame:60, value:1.5}]), rShoulder);
+            deathGroup.addTargetedAnimation(createAnim("rotation.z", [{frame:0, value:0}, {frame:30, value:-0.4}, {frame:60, value:-0.4}]), lHip);
+            deathGroup.addTargetedAnimation(createAnim("rotation.z", [{frame:0, value:0}, {frame:30, value:0.4}, {frame:60, value:0.4}]), rHip);
+            [lElbow, rElbow, lKnee, rKnee].forEach(bone => {
+                deathGroup.addTargetedAnimation(createAnim("rotation.x", [{frame:0, value:0}, {frame:30, value:0}, {frame:60, value:0}]), bone);
+            });
+
+            // --- SPRÁVCE STAVŮ (State Machine) ---
+            let currentAnim = idleGroup;
+            idleGroup.play(true);
+
+            function playAnimation(animGroup, loop = false, speed = 1.0) {
+                if(currentAnim) currentAnim.stop();
+                
+                // Reset rotací před spuštěním nové animace, aby se kosti nezasekly
+                [torso, lShoulder, rShoulder, lElbow, rElbow, lHip, rHip, lKnee, rKnee].forEach(b => {
+                    b.rotation = new BABYLON.Vector3(0,0,0);
+                });
+                
+                animGroup.play(loop);
+                animGroup.speedRatio = speed;
+                currentAnim = animGroup;
+            }
+
+            // Napojení tlačítek
+            const btns = document.querySelectorAll("button");
+            function setActiveBtn(id) {
+                btns.forEach(b => b.classList.remove("active"));
+                document.getElementById(id).classList.add("active");
+            }
+
+            document.getElementById("btnIdle").onclick = () => { playAnimation(idleGroup, true); setActiveBtn("btnIdle"); };
+            document.getElementById("btnRun").onclick = () => { playAnimation(runGroup, true, 1.5); setActiveBtn("btnRun"); };
+            document.getElementById("btnAim").onclick = () => { playAnimation(aimGroup, true); setActiveBtn("btnAim"); };
+            
+            document.getElementById("btnShoot").onclick = () => { 
+                playAnimation(shootGroup, false, 2.0); setActiveBtn("btnShoot"); 
+                // Po výstřelu se vrátí do míření
+                shootGroup.onAnimationEndObservable.addOnce(() => {
+                    playAnimation(aimGroup, true);
+                    setActiveBtn("btnAim");
+                });
+            };
+            
+            document.getElementById("btnJump").onclick = () => { 
+                playAnimation(jumpGroup, false, 1.5); setActiveBtn("btnJump"); 
+                jumpGroup.onAnimationEndObservable.addOnce(() => {
+                    playAnimation(idleGroup, true);
+                    setActiveBtn("btnIdle");
+                });
+            };
+            
+            document.getElementById("btnDeath").onclick = () => { playAnimation(deathGroup, false, 1.2); setActiveBtn("btnDeath"); };
+
+            return scene;
+        };
+
+        const scene = createScene();
+        engine.runRenderLoop(() => { scene.render(); });
+        window.addEventListener("resize", () => { engine.resize(); });
+    </script>
+</body>
+</html>
