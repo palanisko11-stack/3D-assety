@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no">
+    <meta charset="utf-8">
+    <link rel="stylesheet" type="text/css" href="index_data/styles.css">
+    <link rel="manifest" href="https://playcanv.as/apps/w2UjNIVS/manifest.json">
+    <style>@media screen and (min-aspect-ratio: 1280/720) {    #application-canvas.fill-mode-KEEP_ASPECT {        width: auto;        height: 100%;        margin: 0 auto;    }}</style>
+    <title>BMW i8</title>
+    <script src="index_data/playcanvas-stable.min.js"></script>
+    <script>
+        ASSET_PREFIX = "";
+        SCRIPT_PREFIX = "";
+        SCENE_PATH = "370516.json";
+        CONTEXT_OPTIONS = {
+            'antialias': true,
+            'alpha': true,
+            'preserveDrawingBuffer': false,
+            'preferWebGl2': true
+        };
+        SCRIPTS = [ 5257986, 5257983, 5257981, 5257984, 5257988, 5257989, 5257991, 5257992, 5257993, 5257994, 5257996, 5257998, 5257999, 5258000, 5258002, 5258003, 5258001, 5257997, 5257995, 5257990, 5257985, 5257982, 30427258 ];
+        CONFIG_FILENAME = "config.json";
+        INPUT_SETTINGS = {
+            useKeyboard: true,
+            useMouse: true,
+            useGamepads: false,
+            useTouch: true
+        };
+        pc.script.legacy = false;
+        PRELOAD_MODULES = [
+            {'moduleName' : 'BASIS', 'glueUrl' : 'files/assets/30427691/1/basis.wasm.js', 'wasmUrl' : 'files/assets/30427690/1/basis.wasm.wasm', 'fallbackUrl' : 'files/assets/30427692/1/basis.js', 'preload' : false},
+        ];
+    </script>
+<style>
+    #loading {
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        width: auto;
+        height: auto;
+        opacity: 1;
+        z-index: 1;
+        background-color: #1d292c;
+        transition: opacity 300ms;
+    }
+
+    #loading > canvas {
+        position: absolute;
+        top: calc(50% - 120px);
+        left: calc(50% - 90px);
+        display: block;
+        background-image: url("https://s3-eu-west-1.amazonaws.com/static.playcanvas.com/car/bmw-logo.png");
+        background-position: center center;
+        background-repeat: no-repeat;
+        background-size: 100% 100%;
+    }
+    
+    #loading > .logo {
+        position: absolute;
+        top: calc(50% + 60px + 30px);
+        left: calc(50% - 128px);
+    }
+    
+    @media all and (max-height: 480px) {
+        #loading > canvas {
+            top: calc(50% - 100px);
+            left: calc(50% - 60px);
+            width: 120px;
+            height: 120px;
+        }
+        #loading > .logo {
+            top: calc(50% + 20px + 30px);
+        }
+    }
+</style><script src="index_data/__game-scripts.js"></script><style>body {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none !important;
+}
+#button {
+  position: absolute;
+  right: 30px;
+  bottom: 30px;
+  width: 32px;
+  height: 32px;
+  background-repeat: no-repeat;
+  background-image: url("https://s3-eu-west-1.amazonaws.com/static.playcanvas.com/car/enter.png");
+  opacity: 1;
+  transition: opacity 200ms;
+  cursor: pointer;
+}
+#button.transition {
+  opacity: 0;
+  cursor: default;
+}
+#enterVr {
+  position: absolute;
+  right: 80px;
+  bottom: 30px;
+  width: 32px;
+  height: 32px;
+  background-color: #0091ff;
+  color: #fff;
+  line-height: 32px;
+  text-align: center;
+  font-weight: bold;
+  font-family: Arial;
+  font-size: 14px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 200ms;
+}
+#enterVr.active {
+  opacity: 1;
+  visibility: visible;
+  cursor: pointer;
+}
+#enterVr.disabled {
+  opacity: 0.2;
+  background-color: #7f7f7f;
+  cursor: default;
+}
+.presets {
+  position: absolute;
+  left: 27px;
+  bottom: 27px;
+}
+.presets.interior {
+  bottom: 73px;
+}
+.presets.interior > .preset > .color {
+  border-width: 13px;
+  border-style: solid;
+  border-right-color: transparent !important;
+  border-bottom-color: transparent !important;
+}
+.presets.exterior > .preset > .first {
+  width: 26px;
+  height: 20px;
+}
+.presets.exterior > .preset > .second {
+  width: 26px;
+  height: 6px;
+}
+.presets > .preset {
+  float: left;
+  width: 26px;
+  height: 26px;
+  margin-right: 14px;
+  border: 3px solid transparent;
+  cursor: pointer;
+  overflow: hidden;
+}
+.presets > .preset.active {
+  border-color: #fff;
+}
+#social {
+  position: absolute;
+  top: 30px;
+  left: calc(50% - 40px);
+}
+#social > .share {
+  float: left;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+}
+#social > .share.facebook {
+  background-image: url("https://s3-eu-west-1.amazonaws.com/static.playcanvas.com/car/share-fb.png");
+}
+#social > .share.twitter {
+  margin-left: 8px;
+  background-image: url("https://s3-eu-west-1.amazonaws.com/static.playcanvas.com/car/share-tw.png");
+}
+#powered {
+  display: block;
+  position: absolute;
+  left: calc(50% - 91px);
+  bottom: 30px;
+  width: 182px;
+  height: 10px;
+  padding: 6px 16px;
+  background-image: url("https://s3-eu-west-1.amazonaws.com/static.playcanvas.com/car/powered.png");
+  background-repeat: no-repeat;
+  background-position: center center;
+}
+#fwa {
+  display: block;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 146px;
+  height: 146px;
+  background-repeat: no-repeat;
+  background-image: url("https://s3-eu-west-1.amazonaws.com/static.playcanvas.com/car/fwa-site-of-the-day.png");
+}
+@media (max-width: 640px) {
+  #powered {
+    top: 10px;
+    left: calc(50% - 101px);
+    bottom: auto;
+    padding: 10px;
+  }
+  #social {
+    top: 10px;
+    right: 10px;
+    left: auto;
+  }
+}
+@media (max-width: 479px) {
+  #fwa {
+    width: 73px;
+    height: 73px;
+    background-size: 73px 73px;
+  }
+}
+@media (max-width: 359px) {
+  #powered {
+    top: 10px;
+    width: 127px;
+    height: 7px;
+    left: calc(50% - 70px);
+    bottom: auto;
+    padding: 10px;
+    background-size: 127px 7px;
+  }
+}
+@media (max-width: 767px), (max-height: 767px) {
+  #logo {
+    top: 15px;
+  }
+  #social {
+    top: 10px;
+  }
+  #button {
+    bottom: 10px;
+    right: 10px;
+  }
+  #enterVr {
+    bottom: 10px;
+    right: 50px;
+  }
+  .presets {
+    left: 12px;
+    bottom: 12px;
+  }
+  .presets.interior {
+    bottom: 48px;
+  }
+  .presets > .preset {
+    margin-right: 4px;
+  }
+}
+</style><style>#augmented {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: auto;
+    height: auto;
+    overflow: hidden;
+}
+
+#augmented > .item {
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    margin: -16px 0 0 -16px;
+    cursor: pointer;
+    visibility: hidden;
+    opacity: 0;
+    transition: visibility 200ms, opacity 200ms;
+    border: 2px solid #fff;
+}
+#augmented > .item > .inner {
+    width: 12px;
+    height: 12px;
+    margin: 6px;
+    background-color: #fff;
+    display: none;
+}
+#augmented > .item.active:hover {
+    opacity: 1.0;
+}
+#augmented > .item:hover > .inner {
+    display: block;
+}
+
+#augmented > .item.active {
+    visibility: visible;
+    opacity: 0.5;
+}</style></head>
+<body>
+    <script src="index_data/__modules__.js"></script>
+    <script src="index_data/__start__.js"></script><canvas id="application-canvas" tabindex="0" width="1366" height="592" style="" class="fill-mode-FILL_WINDOW"></canvas><div id="augmented"><div class="item" style="transform: translate(-14003.6px, 856.646px) rotate(45deg); display: none;"><inner class="inner"></inner></div><div class="item" style="transform: translate(728.612px, 437.078px) rotate(45deg);"><inner class="inner"></inner></div><div class="item"><inner class="inner"></inner></div></div>
+    <script src="index_data/__loading__.js"></script>
+
+
+<div id="social">
+    <div class="share twitter" network="twitter"></div>
+</div><a href="http://www.thefwa.com/site/next-generation-car-configurator" target="_blank" id="fwa"></a><a href="http://playcanvas.com/" target="_blank" id="powered"></a><div id="button" class="active"></div><div id="enterVr" class="disabled active">VR</div><div class="presets exterior"><div class="preset"><div class="first" style="background-color: rgb(230, 230, 230); border-color: rgb(230, 230, 230);"></div><div class="second" style="background-color: rgb(85, 147, 247); border-color: rgb(85, 147, 247);"></div></div><div class="preset active"><div class="first" style="background-color: rgb(186, 189, 198); border-color: rgb(186, 189, 198);"></div><div class="second" style="background-color: rgb(85, 147, 247); border-color: rgb(85, 147, 247);"></div></div><div class="preset"><div class="first" style="background-color: rgb(85, 147, 247); border-color: rgb(85, 147, 247);"></div><div class="second" style="background-color: rgb(88, 91, 95); border-color: rgb(88, 91, 95);"></div></div><div class="preset"><div class="first" style="background-color: rgb(26, 26, 26); border-color: rgb(26, 26, 26);"></div><div class="second" style="background-color: rgb(234, 176, 85); border-color: rgb(234, 176, 85);"></div></div></div><div class="presets interior"><div class="preset"><div class="color" style="background-color: rgb(65, 75, 88); border-color: rgb(231, 220, 208);"></div></div><div class="preset active"><div class="color" style="background-color: rgb(215, 196, 176); border-color: rgb(81, 59, 50);"></div></div><div class="preset"><div class="color" style="background-color: rgb(28, 38, 49); border-color: rgb(65, 75, 88);"></div></div></div></body></html>
